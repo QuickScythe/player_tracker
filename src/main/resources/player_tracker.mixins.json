@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "package": "me.quickscythe.player_tracker.mixins",
+  "compatibilityLevel": "JAVA_17",
+  "mixins": [
+  ],
+  "client": [
+
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
