@@ -38,7 +38,7 @@ public class ServerListener implements ServerPlayConnectionEvents.Join, ServerPl
         session_info.put("time_left", new Date().getTime());
         session_info.put("playtime", session_info.getLong("time_left") - session_info.getLong("time_joined"));
 
-        session_info.put("jumps", session_info.getLong("jumps_start") - handler.player.getStatHandler().getStat(Stats.CUSTOM.getOrCreateStat(Stats.JUMP)));
+        session_info.put("jumps", handler.player.getStatHandler().getStat(Stats.CUSTOM.getOrCreateStat(Stats.JUMP)) - session_info.getLong("jumps_start"));
         session_info.remove("jumps_start");
 
         session_list.put(session_info);

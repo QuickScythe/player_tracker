@@ -50,7 +50,7 @@ public class Utils {
             } else {
 
                 loggerUtils.log("No record. Creating.");
-                String sql = "INSERT INTO users(uuid,username,discord_id,last_seen,json) VALUES ('" + player.getUuid() + "','" + player.getName().toString().substring(8, player.getName().toString().length() - 1) + "','null','" + new Date().getTime() + "','" + StringEscapeUtils.escapeJava(json.toString()) + "');";
+                String sql = "INSERT INTO users(uuid,username,discord_key,discord_id,password,last_seen,json) VALUES ('" + player.getUuid() + "','" + player.getName().toString().substring(8, player.getName().toString().length() - 1) + "','null','null','null','" + new Date().getTime() + "','" + StringEscapeUtils.escapeJava(json.toString()) + "');";
                 loggerUtils.log(sql);
                 core.input(sql);
             }
