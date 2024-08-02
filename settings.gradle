@@ -4,6 +4,10 @@ pluginManagement {
             name = 'Fabric'
             url = 'https://maven.fabricmc.net/'
         }
+        maven {
+            name = "bluecoloredReleases"
+            url = "https://repo.bluecolored.de/releases"
+        }
         gradlePluginPortal()
     }
 }

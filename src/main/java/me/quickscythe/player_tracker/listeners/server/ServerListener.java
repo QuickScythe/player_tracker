@@ -1,6 +1,8 @@
 package me.quickscythe.player_tracker.listeners.server;
 
-import com.mysql.cj.Session;
+import com.flowpowered.math.vector.Vector3d;
+import de.bluecolored.bluemap.api.BlueMapMap;
+import de.bluecolored.bluemap.api.markers.POIMarker;
 import json2.JSONArray;
 import json2.JSONObject;
 import me.quickscythe.player_tracker.utils.SessionUtils;
@@ -24,7 +26,6 @@ import net.minecraft.util.Identifier;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.Locale;
 
 public class ServerListener implements ServerPlayConnectionEvents.Join, ServerPlayConnectionEvents.Disconnect, ServerLivingEntityEvents.AfterDeath {
 
@@ -46,6 +47,17 @@ public class ServerListener implements ServerPlayConnectionEvents.Join, ServerPl
 
         Utils.save(handler.player, json);
         SessionUtils.clearSession(handler.player.getUuid());
+
+        Utils.getMapAPI().getWorld(handler.player.getServerWorld()).ifPresent(world -> {
+            for (BlueMapMap map : world.getMaps()) {
+                String name = handler.player.getName().getString();
+                Vector3d loc = new Vector3d(handler.player.getX(), handler.getPlayer().getY(), handler.getPlayer().getZ());
+                POIMarker marker = POIMarker.builder().detail(name).defaultIcon().position(loc).label(name).build();
+
+                map.getMarkerSets().get("offline_players").getMarkers().put(handler.player.getUuid().toString(), marker);
+            }
+        });
+
     }
 
     @Override
@@ -53,6 +65,11 @@ public class ServerListener implements ServerPlayConnectionEvents.Join, ServerPl
         JSONObject session = SessionUtils.getSessionInfo(handler.player.getUuid());
         session.put("time_joined", new Date().getTime());
         session.put("jumps_start", handler.player.getStatHandler().getStat(Stats.CUSTOM.getOrCreateStat(Stats.JUMP)));
+        Utils.getMapAPI().getWorld(handler.player.getServerWorld()).ifPresent(world -> {
+            for(BlueMapMap map : world.getMaps()){
+                map.getMarkerSets().get("offline_players").remove(handler.player.getUuid().toString());
+            }
+        });
     }
 
     @Override
@@ -65,7 +82,7 @@ public class ServerListener implements ServerPlayConnectionEvents.Join, ServerPl
 
 
         }
-        if(damageSource.getAttacker() instanceof PlayerEntity){
+        if (damageSource.getAttacker() instanceof PlayerEntity) {
             JSONObject session = SessionUtils.getSessionInfo(damageSource.getAttacker().getUuid());
             JSONObject kills = SessionUtils.getJson("kills", session);
 

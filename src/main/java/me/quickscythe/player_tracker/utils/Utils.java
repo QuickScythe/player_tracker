@@ -1,11 +1,18 @@
 package me.quickscythe.player_tracker.utils;
 
+import com.mojang.authlib.minecraft.client.MinecraftClient;
+import de.bluecolored.bluemap.api.BlueMapAPI;
+import de.bluecolored.bluemap.api.BlueMapMap;
+import de.bluecolored.bluemap.api.BlueMapWorld;
+import de.bluecolored.bluemap.api.markers.MarkerSet;
 import json2.JSONException;
 import json2.JSONObject;
 import me.quickscythe.player_tracker.PlayerTracker;
 import me.quickscythe.player_tracker.utils.logger.LoggerUtils;
 import me.quickscythe.player_tracker.utils.sql.SqlDatabase;
 import me.quickscythe.player_tracker.utils.sql.SqlUtils;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import org.apache.commons.lang3.StringEscapeUtils;
 
@@ -18,6 +25,7 @@ public class Utils {
     private static SqlDatabase core;
     private static LoggerUtils loggerUtils;
     private static PlayerTracker mod;
+    private static BlueMapAPI mapAPI;
 
     public static void init(PlayerTracker mod) {
         Utils.mod = mod;
@@ -28,6 +36,18 @@ public class Utils {
         SqlUtils.createDatabase("core", new SqlDatabase(SqlUtils.SQLDriver.MYSQL, "sql.vanillaflux.com", "vanillaflux", 3306, "sys", "9gGKGqthQJ&!#DGd"));
         core = SqlUtils.getDatabase("core");
 
+        BlueMapAPI.onEnable(api -> {
+            Utils.mapAPI = api;
+            MarkerSet offlinePlayers = MarkerSet.builder().defaultHidden(false).label("Offline Players").build();
+            for(BlueMapMap world : getMapAPI().getMaps()){
+                world.getMarkerSets().put("offline_players", offlinePlayers);
+            }
+        });
+
+    }
+
+    public static BlueMapAPI getMapAPI(){
+        return mapAPI;
     }
 
     public static LoggerUtils getLoggerUtils() {
