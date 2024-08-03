@@ -1,6 +1,7 @@
 package me.quickscythe.player_tracker.utils.logger;
 
 
+import me.quickscythe.player_tracker.utils.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -9,7 +10,7 @@ public class LoggerUtils {
     private final Logger LOGGER;
 
     public LoggerUtils() {
-        LOGGER = LoggerFactory.getLogger("Player-Tracker");
+        LOGGER = LoggerFactory.getILoggerFactory().getLogger(Utils.getMod().NAME);
 
     }
 

@@ -23,6 +23,16 @@ import net.minecraft.stat.Stat;
 import net.minecraft.stat.Stats;
 import net.minecraft.util.Identifier;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.*;
+import java.net.HttpURLConnection;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -50,11 +60,21 @@ public class ServerListener implements ServerPlayConnectionEvents.Join, ServerPl
 
         Utils.getMapAPI().getWorld(handler.player.getServerWorld()).ifPresent(world -> {
             for (BlueMapMap map : world.getMaps()) {
+                Utils.getLoggerUtils().log(map.getWorld().getId());
                 String name = handler.player.getName().getString();
-                Vector3d loc = new Vector3d(handler.player.getX(), handler.getPlayer().getY(), handler.getPlayer().getZ());
-                POIMarker marker = POIMarker.builder().detail(name).defaultIcon().position(loc).label(name).build();
+                String uuid = handler.player.getUuid().toString();
+                Vector3d loc = new Vector3d(handler.player.getX(), handler.getPlayer().getY() + 2, handler.getPlayer().getZ());
+                POIMarker marker = new POIMarker(name, loc);
+                LocalDate date = LocalDate.now();
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy MM dd");
+                String text = date.format(formatter);
+                LocalDate parsedDate = LocalDate.parse(text, formatter);
+                marker.setDetail(name + "\nLast seen: " + parsedDate);
 
-                map.getMarkerSets().get("offline_players").getMarkers().put(handler.player.getUuid().toString(), marker);
+
+                marker.setLabel(name);
+                marker.setIcon("assets/players/" + uuid + ".png", 12, 12);
+                map.getMarkerSets().get("offline_players").getMarkers().put(uuid, marker);
             }
         });
 
@@ -65,11 +85,60 @@ public class ServerListener implements ServerPlayConnectionEvents.Join, ServerPl
         JSONObject session = SessionUtils.getSessionInfo(handler.player.getUuid());
         session.put("time_joined", new Date().getTime());
         session.put("jumps_start", handler.player.getStatHandler().getStat(Stats.CUSTOM.getOrCreateStat(Stats.JUMP)));
+
+        generateIcon(handler.player.getUuid().toString());
         Utils.getMapAPI().getWorld(handler.player.getServerWorld()).ifPresent(world -> {
-            for(BlueMapMap map : world.getMaps()){
+            for (BlueMapMap map : world.getMaps()) {
                 map.getMarkerSets().get("offline_players").remove(handler.player.getUuid().toString());
             }
         });
+    }
+
+    private void generateIcon(String uuid) {
+        File player_asset = new File(Utils.getAssetsFolder() + "/" + uuid + ".png");
+
+
+        try {
+            URL url = new URI("https://api.mineatar.io/face/" + uuid + "?scale=3").toURL();
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestProperty("User-Agent", "PlayerTracker/1.0(+https://www.vanillaflux.com/; <quickscythe@gmail.com>)");
+            Utils.getLoggerUtils().log("Generating User Avatar....");
+            conn.setRequestMethod("GET");
+            Utils.getLoggerUtils().log("  - Connection Code: " + conn.getResponseCode());
+            Utils.getLoggerUtils().log("  - Connection Message: " + conn.getResponseMessage());
+
+            InputStream in = url.openConnection().getInputStream();
+            OutputStream out = new BufferedOutputStream(new FileOutputStream(player_asset));
+            BufferedImage img = ImageIO.read(in);
+
+            int width = img.getWidth();
+            int height = img.getHeight();
+            int[] pixels = img.getRGB(0, 0, width, height, null, 0, width);
+
+            for (int i = 0; i < pixels.length; i++) {
+                int p = pixels[i];
+                int a = (p >> 24) & 0xff;
+                int r = (p >> 16) & 0xff;
+                int g = (p >> 8) & 0xff;
+                int b = p & 0xff;
+
+                int avg = (r + g + b) / 3;
+                p = (a << 24) | (avg << 16) | (avg << 8) | avg;
+                pixels[i] = p;
+            }
+
+            img.setRGB(0, 0, width, height, pixels, 0, width);
+
+            ImageIO.write(img, "png", player_asset);
+
+            in.close();
+            out.close();
+        } catch (IOException | URISyntaxException ex) {
+            throw new RuntimeException(ex);
+        }
+
+
+
     }
 
     @Override

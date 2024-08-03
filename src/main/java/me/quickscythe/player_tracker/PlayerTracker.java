@@ -15,6 +15,8 @@ import static net.minecraft.server.command.CommandManager.literal;
 
 public class PlayerTracker implements ModInitializer {
 
+    public final String NAME = "PlayerTracker";
+
     @Override
     public void onInitialize() {
         Utils.init(this);
