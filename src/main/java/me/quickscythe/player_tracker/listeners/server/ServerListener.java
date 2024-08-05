@@ -30,12 +30,13 @@ import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.text.SimpleDateFormat;
+import java.nio.file.Files;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 public class ServerListener implements ServerPlayConnectionEvents.Join, ServerPlayConnectionEvents.Disconnect, ServerLivingEntityEvents.AfterDeath {
 
@@ -99,9 +100,11 @@ public class ServerListener implements ServerPlayConnectionEvents.Join, ServerPl
 
 
         try {
+            if (player_asset.exists() && Files.getLastModifiedTime(player_asset.toPath()).toMillis() > new Date().getTime() - TimeUnit.MILLISECONDS.convert(1, TimeUnit.HOURS))
+                return;
             URL url = new URI("https://api.mineatar.io/face/" + uuid + "?scale=3").toURL();
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestProperty("User-Agent", "PlayerTracker/1.0(+https://www.vanillaflux.com/; <quickscythe@gmail.com>)");
+            conn.setRequestProperty("User-Agent", "PlayerTracker/1.0(+https://maps.vanillaflux.com/; <quickscythe@gmail.com>)");
             Utils.getLoggerUtils().log("Generating User Avatar....");
             conn.setRequestMethod("GET");
             Utils.getLoggerUtils().log("  - Connection Code: " + conn.getResponseCode());
@@ -133,10 +136,11 @@ public class ServerListener implements ServerPlayConnectionEvents.Join, ServerPl
 
             in.close();
             out.close();
+
+
         } catch (IOException | URISyntaxException ex) {
             throw new RuntimeException(ex);
         }
-
 
 
     }
