@@ -1,8 +1,10 @@
 package me.quickscythe.player_tracker.listeners.server;
 
 import com.flowpowered.math.vector.Vector3d;
+import de.bluecolored.bluemap.api.BlueMapAPI;
 import de.bluecolored.bluemap.api.BlueMapMap;
 import de.bluecolored.bluemap.api.markers.POIMarker;
+import de.bluecolored.bluemap.api.plugin.SkinProvider;
 import json2.JSONArray;
 import json2.JSONObject;
 import me.quickscythe.player_tracker.utils.SessionUtils;
@@ -22,23 +24,21 @@ import net.minecraft.stat.ServerStatHandler;
 import net.minecraft.stat.Stat;
 import net.minecraft.stat.Stats;
 import net.minecraft.util.Identifier;
+import org.jetbrains.annotations.NotNull;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.*;
-import java.net.HttpURLConnection;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.nio.file.Files;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
+import java.util.*;
 
 public class ServerListener implements ServerPlayConnectionEvents.Join, ServerPlayConnectionEvents.Disconnect, ServerLivingEntityEvents.AfterDeath {
+
+    private static void createPlayerHead(final @NotNull BlueMapAPI blueMapAPI, final @NotNull UUID playerUUID, final @NotNull String assetName, final @NotNull BlueMapMap map) throws IOException {
+
+
+    }
 
     @Override
     public void onPlayDisconnect(ServerPlayNetworkHandler handler, MinecraftServer server) {
@@ -58,6 +58,7 @@ public class ServerListener implements ServerPlayConnectionEvents.Join, ServerPl
 
         Utils.save(handler.player, json);
         SessionUtils.clearSession(handler.player.getUuid());
+
 
         Utils.getMapAPI().getWorld(handler.player.getServerWorld()).ifPresent(world -> {
             for (BlueMapMap map : world.getMaps()) {
@@ -87,7 +88,7 @@ public class ServerListener implements ServerPlayConnectionEvents.Join, ServerPl
         session.put("time_joined", new Date().getTime());
         session.put("jumps_start", handler.player.getStatHandler().getStat(Stats.CUSTOM.getOrCreateStat(Stats.JUMP)));
 
-        generateIcon(handler.player.getUuid().toString());
+        generateIcon(handler.player.getUuid());
         Utils.getMapAPI().getWorld(handler.player.getServerWorld()).ifPresent(world -> {
             for (BlueMapMap map : world.getMaps()) {
                 map.getMarkerSets().get("offline_players").remove(handler.player.getUuid().toString());
@@ -95,50 +96,68 @@ public class ServerListener implements ServerPlayConnectionEvents.Join, ServerPl
         });
     }
 
-    private void generateIcon(String uuid) {
+    private void generateIcon(UUID uuid) {
         File player_asset = new File(Utils.getAssetsFolder() + "/" + uuid + ".png");
 
 
         try {
-            if (player_asset.exists() && Files.getLastModifiedTime(player_asset.toPath()).toMillis() > new Date().getTime() - TimeUnit.MILLISECONDS.convert(1, TimeUnit.HOURS))
-                return;
-            URL url = new URI("https://api.mineatar.io/face/" + uuid + "?scale=3").toURL();
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestProperty("User-Agent", "PlayerTracker/1.0(+https://maps.vanillaflux.com/; <quickscythe@gmail.com>)");
-            Utils.getLoggerUtils().log("Generating User Avatar....");
-            conn.setRequestMethod("GET");
-            Utils.getLoggerUtils().log("  - Connection Code: " + conn.getResponseCode());
-            Utils.getLoggerUtils().log("  - Connection Message: " + conn.getResponseMessage());
+//            if (player_asset.exists() && Files.getLastModifiedTime(player_asset.toPath()).toMillis() > new Date().getTime() - TimeUnit.MILLISECONDS.convert(1, TimeUnit.HOURS))
+//                return;
+            final SkinProvider skinProvider = Utils.getMapAPI().getPlugin().getSkinProvider();
+            try {
+                final Optional<BufferedImage> oImgSkin = skinProvider.load(uuid);
+                if (oImgSkin.isEmpty()) {
+                    throw new IOException(uuid + " doesn't have a skin");
+                }
 
-            InputStream in = url.openConnection().getInputStream();
-            OutputStream out = new BufferedOutputStream(new FileOutputStream(player_asset));
-            BufferedImage img = ImageIO.read(in);
+                try (OutputStream out = new BufferedOutputStream(new FileOutputStream(player_asset))) {
+                    final BufferedImage img = Utils.getMapAPI().getPlugin().getPlayerMarkerIconFactory().apply(uuid, oImgSkin.get());
+                    int width = img.getWidth();
+                    int height = img.getHeight();
+                    int[] pixels = img.getRGB(0, 0, width, height, null, 0, width);
 
-            int width = img.getWidth();
-            int height = img.getHeight();
-            int[] pixels = img.getRGB(0, 0, width, height, null, 0, width);
+                    for (int i = 0; i < pixels.length; i++) {
+                        int p = pixels[i];
+                        int a = (p >> 24) & 0xff;
+                        int r = (p >> 16) & 0xff;
+                        int g = (p >> 8) & 0xff;
+                        int b = p & 0xff;
 
-            for (int i = 0; i < pixels.length; i++) {
-                int p = pixels[i];
-                int a = (p >> 24) & 0xff;
-                int r = (p >> 16) & 0xff;
-                int g = (p >> 8) & 0xff;
-                int b = p & 0xff;
+                        int avg = (r + g + b) / 3;
+                        p = (a << 24) | (avg << 16) | (avg << 8) | avg;
+                        pixels[i] = p;
+                    }
 
-                int avg = (r + g + b) / 3;
-                p = (a << 24) | (avg << 16) | (avg << 8) | avg;
-                pixels[i] = p;
+                    img.setRGB(0, 0, width, height, pixels, 0, width);
+                    ImageIO.write(img, "png", out);
+                } catch (IOException e) {
+                    throw new IOException("Failed to write " + uuid + "'s head to asset-storage", e);
+                }
+            } catch (IOException e) {
+                throw new IOException("Failed to load skin for player " + uuid, e);
             }
+//
+//            URL url = new URI("https://api.mineatar.io/face/" + uuid + "?scale=3").toURL();
+//            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+//            conn.setRequestProperty("User-Agent", "PlayerTracker/1.0(+https://maps.vanillaflux.com/; <quickscythe@gmail.com>)");
+//            Utils.getLoggerUtils().log("Generating User Avatar....");
+//            conn.setRequestMethod("GET");
+//            Utils.getLoggerUtils().log("  - Connection Code: " + conn.getResponseCode());
+//            Utils.getLoggerUtils().log("  - Connection Message: " + conn.getResponseMessage());
 
-            img.setRGB(0, 0, width, height, pixels, 0, width);
-
-            ImageIO.write(img, "png", player_asset);
-
-            in.close();
-            out.close();
+//            InputStream in = url.openConnection().getInputStream();
+//            OutputStream out = new BufferedOutputStream(new FileOutputStream(player_asset));
+//            BufferedImage img = ImageIO.read(in);
+//            BufferedImage image = Utils.getMapAPI().getPlugin().getPlayerMarkerIconFactory().apply(UUID.fromString(uuid), r);
 
 
-        } catch (IOException | URISyntaxException ex) {
+//            ImageIO.write(img, "png", player_asset);
+
+//            in.close();
+//            out.close();
+
+
+        } catch (IOException ex) {
             throw new RuntimeException(ex);
         }
 
