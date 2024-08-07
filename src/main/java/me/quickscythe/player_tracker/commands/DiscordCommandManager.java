@@ -50,7 +50,7 @@ public class DiscordCommandManager implements CommandRegistrationCallback {
                     context.getSource().sendFeedback(() -> message, false);
                 }
             } catch (SQLException e) {
-                context.getSource().sendFeedback(()->Text.literal("§cThat is a player only command."), false);
+                context.getSource().sendFeedback(()->Text.literal("§cSorry you couldn't be found in the database. Please relog and try again."), false);
                 throw new RuntimeException(e);
             }
 
